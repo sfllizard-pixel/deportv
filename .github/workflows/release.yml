@@ -15,16 +15,26 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.DEPORTV_KEYSTORE_B64 != '' }}
     steps:
+      - name: Sin clave de firma
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::Faltan los secrets de firma (DEPORTV_KEYSTORE_B64...). No se compila."
       - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
       - uses: actions/setup-java@v4
+        if: env.HAS_KEY == 'true'
         with:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+        if: env.HAS_KEY == 'true'
       - name: Clave de firma
+        if: env.HAS_KEY == 'true'
         run: echo "${{ secrets.DEPORTV_KEYSTORE_B64 }}" | base64 -d > app/deportv.keystore
       - name: Tests y compilación
+        if: env.HAS_KEY == 'true'
         env:
           DEPORTV_KEYSTORE: app/deportv.keystore
           DEPORTV_STORE_PASSWORD: ${{ secrets.DEPORTV_STORE_PASSWORD }}
@@ -37,6 +47,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           cp app/build/outputs/apk/release/app-release.apk DeporTV-$VERSION.apk
       - name: Publicar release
+        if: env.HAS_KEY == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
