@@ -37,13 +37,16 @@ La primera actualización tarda un poco, porque descarga la guía completa. Desp
 Los Ajustes de Android siguen accesibles desde Ajustes de DeporTV → "Ajustes de Android".
 
 ## Actualizaciones
-Desde la 0.2.0, DeporTV mira al abrirse si hay una release más nueva en este repositorio. Si la hay, te lo avisa, descarga el APK y lo instala encima, así que no pierdes los ajustes. La primera vez Android te pedirá que permitas a DeporTV instalar apps. También puedes buscar actualizaciones a mano desde Ajustes.
+Desde la 0.2.0, DeporTV mira al abrirse `updates/latest.json` de este repositorio (y, si no existe, la última GitHub Release). Si la hay, te lo avisa, descarga el APK y lo instala encima, así que no pierdes los ajustes. La primera vez Android te pedirá que permitas a DeporTV instalar apps. También puedes buscar actualizaciones a mano desde Ajustes.
 
 Para publicar una versión nueva:
 1. Sube `versionCode` y `versionName` en `app/build.gradle.kts`.
-2. Sube un tag `vX.Y.Z`. La Action compila el APK y crea la release sola.
+2. Compila el APK firmado y cópialo a `updates/DeporTV-X.Y.Z.apk`.
+3. Actualiza `updates/latest.json` con la versión nueva y haz push.
 
-La clave de firma no está en el repositorio. La Action la lee de los secrets.
+Opcional: si añades los secrets de firma (ver `.github/workflows/release.yml`), al subir un tag `vX.Y.Z` la Action compila el APK y publica una Release.
+
+La clave de firma no está en el repositorio. Guárdala bien: sin ella no se puede actualizar encima de la versión instalada.
 
 ## Compilar
 Necesitas el JDK 17 o superior y el Android SDK 35. Ejecuta `gradle assembleRelease`. Los tests están en `gradle testDebugUnitTest` (parser del EPG y motor de relevancia).

@@ -30,15 +30,41 @@ object Updater {
 
     val currentVersion: String get() = BuildConfig.VERSION_NAME
 
-    /** Devuelve la release si es más nueva que la instalada; null si no hay novedades. */
+    private val rawBase get() = "https://raw.githubusercontent.com/${BuildConfig.UPDATE_REPO}/main/updates/"
+
+    /**
+     * Devuelve la versión nueva si es más reciente que la instalada; null si no hay novedades.
+     * 1º mira updates/latest.json del repo; si no existe, la última GitHub Release.
+     */
     suspend fun check(): Release? = withContext(Dispatchers.IO) {
+        val fromRepo = try { checkRepoManifest() } catch (e: Exception) { null }
+        if (fromRepo != null) return@withContext fromRepo.takeIf { isNewer(it.version, currentVersion) }
+        checkReleases()
+    }
+
+    /** updates/latest.json: {"version":"0.2.0","apk":"DeporTV-0.2.0.apk","notes":"..."} */
+    private fun checkRepoManifest(): Release? {
+        val req = Request.Builder().url(rawBase + "latest.json?t=" + System.currentTimeMillis() / 300_000)
+            .header("User-Agent", "DeporTV-updater").build()
+        http.newCall(req).execute().use { r ->
+            if (!r.isSuccessful) return null
+            val j = JSONObject(r.body!!.string())
+            val v = j.optString("version").removePrefix("v")
+            var apk = j.optString("apk")
+            if (v.isEmpty() || apk.isEmpty()) return null
+            if (!apk.startsWith("http")) apk = rawBase + apk
+            return Release(v, apk, j.optString("notes").trim())
+        }
+    }
+
+    private fun checkReleases(): Release? {
         val req = Request.Builder()
             .url("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest")
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "DeporTV-updater")
             .build()
         http.newCall(req).execute().use { r ->
-            if (r.code == 404) return@withContext null // aún no hay releases
+            if (r.code == 404) return null // aún no hay releases
             if (!r.isSuccessful) throw IOException("GitHub HTTP ${r.code}")
             val j = JSONObject(r.body!!.string())
             val tag = j.optString("tag_name").removePrefix("v").removePrefix("V")
@@ -48,7 +74,7 @@ object Updater {
                 val a = assets.getJSONObject(i)
                 if (a.optString("name").endsWith(".apk", true)) { apk = a.optString("browser_download_url"); break }
             }
-            if (apk == null || !isNewer(tag, currentVersion)) null
+            return if (apk == null || !isNewer(tag, currentVersion)) null
             else Release(tag, apk, j.optString("body").trim())
         }
     }
